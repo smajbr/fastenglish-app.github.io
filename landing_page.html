@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FastEnglish Translator</title>
+  <meta name="description" content="Browser extension that shows word-by-word translation directly on any English website.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --cyan: #00cfe8; --pink: #ff2d78; --bg: #060c1e;
+      --bg2: #0a1228; --text: #dde8f5; --muted: #4a6080;
+    }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); overflow-x: hidden; }
+
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      padding: 14px 5%; display: flex; align-items: center; justify-content: space-between;
+      background: rgba(6,12,30,0.9); backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(0,207,232,0.1);
+    }
+    .nav-logo { font-size: 16px; font-weight: 900; letter-spacing: 2px;
+      background: linear-gradient(90deg, var(--cyan), var(--pink));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .lang-switcher { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+    .lang-btn {
+      padding: 4px 8px; border-radius: 6px; font-size: 11px; cursor: pointer;
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(0,207,232,0.15);
+      color: var(--muted); transition: all .15s;
+    }
+    .lang-btn:hover, .lang-btn.active {
+      background: rgba(0,207,232,0.1); border-color: rgba(0,207,232,0.4); color: var(--cyan);
+    }
+    .nav-cta {
+      padding: 8px 20px; background: linear-gradient(90deg, var(--cyan), var(--pink));
+      border-radius: 8px; color: #fff; font-weight: 700; font-size: 13px;
+      text-decoration: none; transition: opacity .2s; white-space: nowrap;
+    }
+    .nav-cta:hover { opacity: 0.85; }
+
+    .hero {
+      min-height: 100vh; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 100px 5% 60px; text-align: center;
+      background: radial-gradient(ellipse 80% 50% at 50% 0%, rgba(0,207,232,0.07), transparent),
+                  radial-gradient(ellipse 60% 40% at 80% 80%, rgba(255,45,120,0.06), transparent);
+    }
+    .hero-tag {
+      display: inline-block; margin-bottom: 18px; padding: 5px 14px; border-radius: 20px;
+      background: rgba(0,207,232,0.1); border: 1px solid rgba(0,207,232,0.2);
+      font-size: 12px; font-weight: 600; color: var(--cyan); letter-spacing: 1px;
+    }
+    h1 {
+      font-size: clamp(26px, 5vw, 52px); font-weight: 900; line-height: 1.1; margin-bottom: 18px;
+      background: linear-gradient(135deg, #fff, rgba(255,255,255,0.7));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .hero-sub { font-size: clamp(14px, 2vw, 18px); color: var(--muted); max-width: 560px; margin-bottom: 32px; }
+    .hero-sub strong { color: var(--cyan); }
+
+    .demo-box {
+      background: var(--bg2); border: 1px solid rgba(0,207,232,0.2);
+      border-radius: 16px; padding: 24px 28px; margin-bottom: 32px;
+      max-width: 660px; width: 100%; text-align: left;
+    }
+    .demo-url { font-size: 11px; color: var(--muted); margin-bottom: 14px; font-family: monospace; }
+    .demo-text { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+    .demo-word { display: inline-flex; flex-direction: column; align-items: center; }
+    .demo-a { font-size: 17px; font-weight: 600; color: #fff; }
+    .demo-b { font-size: 11px; font-style: italic; font-weight: 500; color: #6a8aaa; margin-top: 2px; }
+    .demo-b.rare { color: rgba(220,60,80,0.9); }
+    .demo-legend { margin-top: 10px; font-size: 10px; color: var(--muted); }
+
+    .cta-group { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-bottom: 14px; }
+    .btn-hero {
+      padding: 13px 26px; border-radius: 12px; font-weight: 700; font-size: 14px;
+      text-decoration: none; transition: all .2s; cursor: pointer; border: none;
+    }
+    .btn-primary { background: linear-gradient(90deg, var(--cyan), var(--pink)); color: #fff;
+      box-shadow: 0 8px 28px rgba(0,207,232,0.22); }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 12px 36px rgba(0,207,232,0.35); }
+    .btn-secondary { background: transparent; border: 1px solid rgba(255,255,255,0.13); color: var(--muted); }
+    .btn-secondary:hover { border-color: rgba(0,207,232,0.4); color: var(--cyan); }
+    .hero-note { font-size: 11px; color: var(--muted); }
+    .hero-note a { color: rgba(0,207,232,0.7); text-decoration: none; }
+
+    section { padding: 70px 5%; }
+    .sec-center { text-align: center; }
+    .tag { display: inline-block; margin-bottom: 10px; font-size: 10px; font-weight: 700;
+      letter-spacing: 2px; text-transform: uppercase; color: var(--cyan); }
+    h2 { font-size: clamp(20px, 3vw, 34px); font-weight: 900; margin-bottom: 12px; color: #fff; }
+    .sec-sub { font-size: 14px; color: var(--muted); max-width: 500px; margin-bottom: 40px; }
+
+    .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px,1fr)); gap: 18px; }
+    .step {
+      background: var(--bg2); border: 1px solid rgba(0,207,232,0.1);
+      border-radius: 14px; padding: 22px;
+    }
+    .step-num { font-size: 26px; font-weight: 900; margin-bottom: 8px;
+      background: linear-gradient(90deg, var(--cyan), var(--pink));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .step h3 { font-size: 14px; font-weight: 700; margin-bottom: 5px; color: #fff; }
+    .step p { font-size: 12px; color: var(--muted); }
+
+    .langs-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+    .lang-pill {
+      padding: 6px 14px; border-radius: 20px;
+      background: var(--bg2); border: 1px solid rgba(0,207,232,0.12);
+      font-size: 13px; color: var(--text); font-weight: 500;
+    }
+
+    .pricing-bg { background: var(--bg2); }
+    .price-card {
+      display: inline-block; background: var(--bg);
+      border: 2px solid rgba(0,207,232,0.28); border-radius: 20px;
+      padding: 34px 40px; max-width: 340px; width: 100%;
+      box-shadow: 0 0 60px rgba(0,207,232,0.07);
+    }
+    .price-tag { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+    .price-value { font-size: 52px; font-weight: 900; line-height: 1;
+      background: linear-gradient(90deg, var(--cyan), var(--pink));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text; margin-bottom: 4px; }
+    .price-once { font-size: 12px; color: var(--muted); margin-bottom: 22px; }
+    .price-features { list-style: none; margin-bottom: 24px; text-align: left; }
+    .price-features li {
+      padding: 6px 0; font-size: 13px; color: var(--text);
+      border-bottom: 1px solid rgba(0,207,232,0.07);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .price-features li::before { content: '✓'; color: var(--cyan); font-weight: 700; }
+    .pay-methods { display: flex; flex-wrap: wrap; gap: 7px; justify-content: center; margin-top: 16px; }
+    .pay-pill { padding: 4px 12px; border-radius: 20px; font-size: 11px;
+      background: rgba(0,207,232,0.06); border: 1px solid rgba(0,207,232,0.13); color: var(--muted); }
+
+    .markets-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px,1fr)); gap: 12px; }
+    .market-card { background: var(--bg2); border: 1px solid rgba(0,207,232,0.1);
+      border-radius: 12px; padding: 14px; text-align: center; }
+    .market-flag { font-size: 24px; margin-bottom: 5px; }
+    .market-name { font-size: 11px; font-weight: 700; color: var(--text); }
+    .market-pop { font-size: 10px; color: var(--muted); }
+
+    .faq-list { max-width: 580px; }
+    .faq-item { margin-bottom: 18px; }
+    .faq-q { font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 5px; }
+    .faq-a { font-size: 12px; color: var(--muted); line-height: 1.6; }
+
+    footer { text-align: center; padding: 28px 5%;
+      border-top: 1px solid rgba(0,207,232,0.07);
+      font-size: 11px; color: var(--muted); }
+    footer a { color: rgba(0,207,232,0.6); text-decoration: none; }
+
+    @media (max-width: 600px) {
+      .lang-switcher { display: none; }
+      .demo-a { font-size: 15px; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">⚡ FAST ENGLISH</div>
+  <div class="lang-switcher" id="langSwitcher"></div>
+  <a class="nav-cta" id="navCta" href="https://fastenglish.gumroad.com/l/fastenglish-translator" target="_blank">$2.99</a>
+</nav>
+
+<section class="hero">
+  <div class="hero-tag" id="heroTag">🌍 Chrome · Edge · Firefox</div>
+  <h1 id="heroTitle">Learn English Reading Any Website</h1>
+  <p class="hero-sub" id="heroSub">Every English word gets its translation <strong id="heroStrong">right below</strong> — directly on the page, without opening Google Translate.</p>
+
+  <div class="demo-box">
+    <div class="demo-url" id="demoUrl">🌐 bbc.com/news/world</div>
+    <div class="demo-text" id="demoWords"></div>
+    <div class="demo-legend" id="demoLegend"></div>
+  </div>
+
+  <div class="cta-group">
+    <a class="btn-hero btn-primary" id="btnBuy" href="https://fastenglish.gumroad.com/l/fastenglish-translator" target="_blank">🔓 Buy Lifetime Access — $2.99</a>
+    <a class="btn-hero btn-secondary" id="btnTrial" href="https://chrome.google.com/webstore" target="_blank">Try Free for 7 Days</a>
+  </div>
+  <p class="hero-note" id="heroNote">💳 Card · PayPal · Bitcoin · USDT · PIX</p>
+</section>
+
+<section>
+  <div style="max-width:900px;margin:0 auto;">
+    <div class="tag" id="howTag">HOW IT WORKS</div>
+    <h2 id="howTitle">Simple as reading. Powerful as studying.</h2>
+    <p class="sec-sub" id="howSub">3 clicks to turn any English article into a vocabulary lesson.</p>
+    <div class="steps" id="stepsGrid"></div>
+  </div>
+</section>
+
+<section style="background:var(--bg2);padding:60px 5%;">
+  <div style="max-width:900px;margin:0 auto;">
+    <div class="tag" id="langsTag">LANGUAGES</div>
+    <h2 id="langsTitle">For everyone learning English worldwide</h2>
+    <div class="langs-grid" style="margin-top:24px;">
+      <div class="lang-pill">🇧🇷 Português</div><div class="lang-pill">🇪🇸 Español</div>
+      <div class="lang-pill">🇫🇷 Français</div><div class="lang-pill">🇩🇪 Deutsch</div>
+      <div class="lang-pill">🇮🇹 Italiano</div><div class="lang-pill">🇯🇵 日本語</div>
+      <div class="lang-pill">🇨🇳 中文</div><div class="lang-pill">🇷🇺 Русский</div>
+      <div class="lang-pill">🇸🇦 العربية</div><div class="lang-pill">🇰🇷 한국어</div>
+      <div class="lang-pill">🇮🇳 हिन्दी</div><div class="lang-pill">🇹🇷 Türkçe</div>
+      <div class="lang-pill">🇳🇱 Nederlands</div><div class="lang-pill">🇵🇱 Polski</div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div style="max-width:900px;margin:0 auto;">
+    <div class="tag" id="marketsTag">GLOBAL REACH</div>
+    <h2 id="marketsTitle">Billions of people want to learn English</h2>
+    <div class="markets-grid" style="margin-top:24px;">
+      <div class="market-card"><div class="market-flag">🇧🇷</div><div class="market-name">Brasil</div><div class="market-pop">215M</div></div>
+      <div class="market-card"><div class="market-flag">🇲🇽</div><div class="market-name">México</div><div class="market-pop">130M</div></div>
+      <div class="market-card"><div class="market-flag">🇯🇵</div><div class="market-name">Japan</div><div class="market-pop">125M</div></div>
+      <div class="market-card"><div class="market-flag">🇩🇪</div><div class="market-name">Germany</div><div class="market-pop">84M</div></div>
+      <div class="market-card"><div class="market-flag">🇰🇷</div><div class="market-name">Korea</div><div class="market-pop">52M</div></div>
+      <div class="market-card"><div class="market-flag">🇮🇩</div><div class="market-name">Indonesia</div><div class="market-pop">277M</div></div>
+      <div class="market-card"><div class="market-flag">🇮🇳</div><div class="market-name">India</div><div class="market-pop">1.4B</div></div>
+      <div class="market-card"><div class="market-flag">🇷🇺</div><div class="market-name">Russia</div><div class="market-pop">145M</div></div>
+    </div>
+  </div>
+</section>
+
+<section class="pricing-bg sec-center" id="preco">
+  <div class="tag" id="priceTag">PRICING</div>
+  <h2 id="priceTitle">Once. Forever.</h2>
+  <p class="sec-sub" id="priceSub" style="margin:10px auto 32px;">No subscription. No renewal. Pay once, use forever.</p>
+  <div class="price-card">
+    <div class="price-tag" id="priceCardTag">Lifetime Access</div>
+    <div class="price-value">$2.99</div>
+    <div class="price-once" id="priceOnce">one-time · no monthly fee</div>
+    <ul class="price-features" id="priceFeatures"></ul>
+    <a class="btn-hero btn-primary" id="priceCta" style="display:block;text-align:center;"
+       href="https://fastenglish.gumroad.com/l/fastenglish-translator" target="_blank">
+      🔓 Buy Now — $2.99
+    </a>
+  </div>
+  <div class="pay-methods">
+    <div class="pay-pill">💳 Credit Card</div><div class="pay-pill">PayPal</div>
+    <div class="pay-pill">₿ Bitcoin</div><div class="pay-pill">USDT</div>
+    <div class="pay-pill">Ethereum</div><div class="pay-pill">PIX</div>
+  </div>
+</section>
+
+<section id="faq" style="background:var(--bg2);">
+  <div style="max-width:660px;margin:0 auto;">
+    <div class="tag" id="faqTag">FAQ</div>
+    <h2 id="faqTitle">Questions & Answers</h2>
+    <div style="height:28px;"></div>
+    <div class="faq-list" id="faqList"></div>
+  </div>
+</section>
+
+<section class="sec-center">
+  <h2 id="finalTitle">Ready to read English for real?</h2>
+  <p style="color:var(--muted);margin:12px 0 28px;font-size:14px;" id="finalSub">7 days free. Then $2.99 forever.</p>
+  <a class="btn-hero btn-primary" id="finalCta"
+     href="https://fastenglish.gumroad.com/l/fastenglish-translator" target="_blank">
+    ⚡ Start Now — Free Trial
+  </a>
+</section>
+
+<footer>
+  <p>⚡ FastEnglish.app &nbsp;·&nbsp; <a href="mailto:support@fastenglish.app" id="footerContact">Support</a> &nbsp;·&nbsp; <span id="footerTagline">Made for people who want to really learn English.</span></p>
+</footer>
+
+<script>
+// ── Translations ──────────────────────────────────────────────────────────────
+const T = {
+  en: {
+    navCta:"Buy $2.99", heroTag:"🌍 Chrome · Edge · Firefox",
+    heroTitle:"Learn English Reading Any Website",
+    heroSub:"Every English word gets its translation {strong} — directly on the page, without opening Google Translate.",
+    heroStrong:"right below",
+    btnBuy:"🔓 Buy Lifetime Access — $2.99", btnTrial:"Try Free for 7 Days",
+    heroNote:"💳 Card · PayPal · Bitcoin · USDT",
+    howTag:"HOW IT WORKS", howTitle:"Simple as reading. Powerful as studying.",
+    howSub:"3 clicks to turn any English article into a vocabulary lesson.",
+    steps:[
+      {n:"1",h:"Install the extension",p:"Add to Chrome, Edge or Firefox. 7-day free trial, no card required."},
+      {n:"2",h:"Open any English website",p:"BBC, CNN, Reddit, Wikipedia, Medium — works on any page."},
+      {n:"3",h:"Click ⚡ and pick your language",p:"Translation appears word by word, directly below the original text."},
+      {n:"4",h:"Use the rarity filter",p:"Rare words turn red — focus your study on what really matters."},
+    ],
+    langsTag:"LANGUAGES", langsTitle:"For everyone learning English worldwide",
+    marketsTag:"GLOBAL REACH", marketsTitle:"Billions of people want to learn English",
+    priceTag:"PRICING", priceTitle:"Once. Forever.",
+    priceSub:"No subscription. No renewal. Pay once, use forever.",
+    priceCardTag:"Lifetime Access", priceOnce:"one-time · no monthly fee",
+    priceFeatures:["Unlimited pages per day","14 translation languages","Rarity filter (red/gray)","Opacity control","Chrome, Edge & Firefox","Updates included"],
+    priceCta:"🔓 Buy Now — $2.99",
+    faqTag:"FAQ", faqTitle:"Questions & Answers",
+    faq:[
+      {q:"Is the trial really free?",a:"Yes. 7 days with no credit card, no registration. Install and use."},
+      {q:"How do I get my license after buying?",a:"Instantly by email, auto-generated by Gumroad. Paste it in the extension popup."},
+      {q:"Does it work on all websites?",a:"Yes — BBC, CNN, Reddit, Wikipedia, Medium, any English page."},
+      {q:"Can I pay with crypto?",a:"Yes. Bitcoin, Ethereum and USDT accepted. Send proof of payment to receive your license."},
+      {q:"What is the rarity filter?",a:"Words that appear rarely in the text turn red — those are the hardest. Focus your study on them."},
+    ],
+    finalTitle:"Ready to read English for real?", finalSub:"7 days free. Then $2.99 forever.",
+    finalCta:"⚡ Start Now — Free Trial",
+    footerContact:"Support", footerTagline:"Made for people who want to really learn English.",
+    demoLegend:"■ red = rare word   ■ gray = common word",
+    demoWords:[
+      {a:"Scientists",b:"scientists",rare:true},{a:"have",b:"have"},{a:"discovered",b:"discovered",rare:true},
+      {a:"a",b:"a"},{a:"new",b:"new"},{a:"species",b:"species",rare:true},
+      {a:"in",b:"in"},{a:"the",b:"the"},{a:"Amazon",b:"Amazon"},
+    ],
+  },
+
+  pt: {
+    navCta:"Comprar $2.99", heroTag:"🌍 Chrome · Edge · Firefox",
+    heroTitle:"Aprenda Inglês Lendo Qualquer Site",
+    heroSub:"Cada palavra em inglês recebe sua tradução {strong} — direto na página, sem abrir o Google Translate.",
+    heroStrong:"logo abaixo",
+    btnBuy:"🔓 Comprar Acesso Vitalício — $2.99", btnTrial:"Testar Grátis por 7 Dias",
+    heroNote:"💳 Cartão · PayPal · Bitcoin · USDT · PIX",
+    howTag:"COMO FUNCIONA", howTitle:"Simples como ler. Poderoso como estudar.",
+    howSub:"3 cliques para transformar qualquer artigo em inglês numa aula de vocabulário.",
+    steps:[
+      {n:"1",h:"Instale a extensão",p:"Adicione ao Chrome, Edge ou Firefox. Trial de 7 dias sem cartão."},
+      {n:"2",h:"Abra qualquer site em inglês",p:"BBC, CNN, Reddit, Wikipedia, Medium — funciona em qualquer página."},
+      {n:"3",h:"Clique ⚡ e escolha seu idioma",p:"A tradução aparece palavra por palavra, logo abaixo do texto original."},
+      {n:"4",h:"Use o filtro de raridade",p:"Palavras raras ficam em vermelho — foque seu estudo no que realmente importa."},
+    ],
+    langsTag:"IDIOMAS", langsTitle:"Para quem quer aprender inglês no mundo todo",
+    marketsTag:"ALCANCE GLOBAL", marketsTitle:"Bilhões de pessoas querem aprender inglês",
+    priceTag:"PREÇO", priceTitle:"Uma vez. Para sempre.",
+    priceSub:"Sem assinatura. Sem renovação. Pague uma vez, use para sempre.",
+    priceCardTag:"Acesso Vitalício", priceOnce:"pagamento único · sem mensalidade",
+    priceFeatures:["Páginas ilimitadas por dia","14 idiomas de tradução","Filtro de raridade (vermelho/cinza)","Controle de opacidade","Chrome, Edge e Firefox","Atualizações incluídas"],
+    priceCta:"🔓 Comprar Agora — $2.99",
+    faqTag:"DÚVIDAS", faqTitle:"Perguntas e Respostas",
+    faq:[
+      {q:"O trial realmente é grátis?",a:"Sim. 7 dias sem cartão de crédito, sem cadastro. Instale e use."},
+      {q:"Como recebo minha licença?",a:"Imediatamente por email, gerada pelo Gumroad. Cole no popup da extensão."},
+      {q:"Funciona em todos os sites?",a:"Sim — BBC, CNN, Reddit, Wikipedia, Medium, qualquer página em inglês."},
+      {q:"Posso pagar com criptomoeda?",a:"Sim. Bitcoin, Ethereum e USDT. Envie o comprovante para receber sua licença."},
+      {q:"O que é o filtro de raridade?",a:"Palavras que aparecem poucas vezes ficam em vermelho — são as mais difíceis. Foque seu estudo nelas."},
+    ],
+    finalTitle:"Pronto para ler inglês de verdade?", finalSub:"7 dias grátis. Depois, $2.99 para sempre.",
+    finalCta:"⚡ Começar Agora — Trial Grátis",
+    footerContact:"Suporte", footerTagline:"Feito para quem quer aprender inglês de verdade.",
+    demoLegend:"■ vermelho = palavra rara   ■ cinza = palavra comum",
+    demoWords:[
+      {a:"Scientists",b:"cientistas",rare:true},{a:"have",b:"têm"},{a:"discovered",b:"descoberto",rare:true},
+      {a:"a",b:"um"},{a:"new",b:"novo"},{a:"species",b:"espécie",rare:true},
+      {a:"in",b:"em"},{a:"the",b:"o"},{a:"Amazon",b:"Amazônia"},
+    ],
+  },
+
+  es: {
+    navCta:"Comprar $2.99", heroTag:"🌍 Chrome · Edge · Firefox",
+    heroTitle:"Aprende Inglés Leyendo Cualquier Sitio Web",
+    heroSub:"Cada palabra en inglés recibe su traducción {strong} — directamente en la página, sin abrir Google Translate.",
+    heroStrong:"justo debajo",
+    btnBuy:"🔓 Comprar Acceso Vitalicio — $2.99", btnTrial:"Probar Gratis 7 Días",
+    heroNote:"💳 Tarjeta · PayPal · Bitcoin · USDT",
+    howTag:"CÓMO FUNCIONA", howTitle:"Simple como leer. Poderoso como estudiar.",
+    howSub:"3 clics para convertir cualquier artículo en inglés en una lección de vocabulario.",
+    steps:[
+      {n:"1",h:"Instala la extensión",p:"Añade a Chrome, Edge o Firefox. Trial de 7 días sin tarjeta."},
+      {n:"2",h:"Abre cualquier web en inglés",p:"BBC, CNN, Reddit, Wikipedia, Medium — funciona en cualquier página."},
+      {n:"3",h:"Haz clic en ⚡ y elige tu idioma",p:"La traducción aparece palabra por palabra, justo debajo del texto original."},
+      {n:"4",h:"Usa el filtro de rareza",p:"Las palabras raras se vuelven rojas — enfoca tu estudio en lo que realmente importa."},
+    ],
+    langsTag:"IDIOMAS", langsTitle:"Para todos los que quieren aprender inglés",
+    marketsTag:"ALCANCE GLOBAL", marketsTitle:"Miles de millones quieren aprender inglés",
+    priceTag:"PRECIO", priceTitle:"Una vez. Para siempre.",
+    priceSub:"Sin suscripción. Sin renovación. Paga una vez, usa para siempre.",
+    priceCardTag:"Acceso Vitalicio", priceOnce:"pago único · sin mensualidad",
+    priceFeatures:["Páginas ilimitadas por día","14 idiomas de traducción","Filtro de rareza (rojo/gris)","Control de opacidad","Chrome, Edge y Firefox","Actualizaciones incluidas"],
+    priceCta:"🔓 Comprar Ahora — $2.99",
+    faqTag:"PREGUNTAS", faqTitle:"Preguntas y Respuestas",
+    faq:[
+      {q:"¿El trial es realmente gratis?",a:"Sí. 7 días sin tarjeta de crédito, sin registro. Instala y usa."},
+      {q:"¿Cómo recibo mi licencia?",a:"Inmediatamente por email, generada por Gumroad. Pégala en el popup de la extensión."},
+      {q:"¿Funciona en todos los sitios?",a:"Sí — BBC, CNN, Reddit, Wikipedia, Medium, cualquier página en inglés."},
+      {q:"¿Puedo pagar con criptomoneda?",a:"Sí. Bitcoin, Ethereum y USDT. Envía el comprobante para recibir tu licencia."},
+      {q:"¿Qué es el filtro de rareza?",a:"Las palabras que aparecen poco se vuelven rojas — son las más difíciles. Enfoca tu estudio en ellas."},
+    ],
+    finalTitle:"¿Listo para leer inglés de verdad?", finalSub:"7 días gratis. Después, $2.99 para siempre.",
+    finalCta:"⚡ Empezar Ahora — Trial Gratis",
+    footerContact:"Soporte", footerTagline:"Hecho para personas que quieren aprender inglés de verdad.",
+    demoLegend:"■ rojo = palabra rara   ■ gris = palabra común",
+    demoWords:[
+      {a:"Scientists",b:"científicos",rare:true},{a:"have",b:"han"},{a:"discovered",b:"descubierto",rare:true},
+      {a:"a",b:"una"},{a:"new",b:"nueva"},{a:"species",b:"especie",rare:true},
+      {a:"in",b:"en"},{a:"the",b:"el"},{a:"Amazon",b:"Amazonas"},
+    ],
+  },
+
+  fr: {
+    navCta:"Acheter $2.99",heroTag:"🌍 Chrome · Edge · Firefox",
+    heroTitle:"Apprenez l'Anglais en Lisant N'importe Quel Site",
+    heroSub:"Chaque mot anglais reçoit sa traduction {strong} — directement sur la page, sans ouvrir Google Traduction.",
+    heroStrong:"juste en dessous",
+    btnBuy:"🔓 Acheter l'Accès à Vie — $2.99",btnTrial:"Essayer Gratuitement 7 Jours",
+    heroNote:"💳 Carte · PayPal · Bitcoin · USDT",
+    howTag:"COMMENT ÇA MARCHE",howTitle:"Simple à lire. Puissant pour apprendre.",
+    howSub:"3 clics pour transformer n'importe quel article en anglais en une leçon de vocabulaire.",
+    steps:[
+      {n:"1",h:"Installez l'extension",p:"Ajoutez à Chrome, Edge ou Firefox. Essai de 7 jours sans carte."},
+      {n:"2",h:"Ouvrez n'importe quel site en anglais",p:"BBC, CNN, Reddit, Wikipedia, Medium — fonctionne sur toutes les pages."},
+      {n:"3",h:"Cliquez ⚡ et choisissez votre langue",p:"La traduction apparaît mot par mot, juste en dessous du texte original."},
+      {n:"4",h:"Utilisez le filtre de rareté",p:"Les mots rares deviennent rouges — concentrez vos études sur ce qui compte vraiment."},
+    ],
+    langsTag:"LANGUES",langsTitle:"Pour tous ceux qui veulent apprendre l'anglais",
+    marketsTag:"PORTÉE MONDIALE",marketsTitle:"Des milliards de personnes veulent apprendre l'anglais",
+    priceTag:"PRIX",priceTitle:"Une fois. Pour toujours.",
+    priceSub:"Sans abonnement. Sans renouvellement. Payez une fois, utilisez pour toujours.",
+    priceCardTag:"Accès à Vie",priceOnce:"paiement unique · sans abonnement mensuel",
+    priceFeatures:["Pages illimitées par jour","14 langues de traduction","Filtre de rareté (rouge/gris)","Contrôle d'opacité","Chrome, Edge et Firefox","Mises à jour incluses"],
+    priceCta:"🔓 Acheter Maintenant — $2.99",
+    faqTag:"FAQ",faqTitle:"Questions & Réponses",
+    faq:[
+      {q:"L'essai est-il vraiment gratuit?",a:"Oui. 7 jours sans carte de crédit, sans inscription. Installez et utilisez."},
+      {q:"Comment recevoir ma licence?",a:"Immédiatement par email, générée par Gumroad. Collez-la dans le popup de l'extension."},
+      {q:"Fonctionne-t-il sur tous les sites?",a:"Oui — BBC, CNN, Reddit, Wikipedia, Medium, toute page en anglais."},
+      {q:"Puis-je payer en crypto?",a:"Oui. Bitcoin, Ethereum et USDT. Envoyez la preuve pour recevoir votre licence."},
+    ],
+    finalTitle:"Prêt à lire l'anglais pour de vrai?",finalSub:"7 jours gratuits. Ensuite, $2.99 pour toujours.",
+    finalCta:"⚡ Commencer Maintenant",
+    footerContact:"Support",footerTagline:"Fait pour ceux qui veulent vraiment apprendre l'anglais.",
+    demoLegend:"■ rouge = mot rare   ■ gris = mot courant",
+    demoWords:[
+      {a:"Scientists",b:"scientifiques",rare:true},{a:"have",b:"ont"},{a:"discovered",b:"découvert",rare:true},
+      {a:"a",b:"une"},{a:"new",b:"nouvelle"},{a:"species",b:"espèce",rare:true},
+      {a:"in",b:"dans"},{a:"the",b:"l'"},{a:"Amazon",b:"Amazonie"},
+    ],
+  },
+
+  de: {
+    navCta:"Kaufen $2.99",heroTag:"🌍 Chrome · Edge · Firefox",
+    heroTitle:"Lerne Englisch beim Lesen beliebiger Webseiten",
+    heroSub:"Jedes englische Wort erhält seine Übersetzung {strong} — direkt auf der Seite, ohne Google Übersetzer zu öffnen.",
+    heroStrong:"direkt darunter",
+    btnBuy:"🔓 Lebenslangen Zugang kaufen — $2.99",btnTrial:"7 Tage kostenlos testen",
+    heroNote:"💳 Karte · PayPal · Bitcoin · USDT",
+    howTag:"WIE ES FUNKTIONIERT",howTitle:"Einfach wie Lesen. Mächtig wie Lernen.",
+    howSub:"3 Klicks, um jeden englischen Artikel in eine Vokabelstunde zu verwandeln.",
+    steps:[
+      {n:"1",h:"Erweiterung installieren",p:"Zu Chrome, Edge oder Firefox hinzufügen. 7-Tage-Test ohne Kreditkarte."},
+      {n:"2",h:"Beliebige englische Webseite öffnen",p:"BBC, CNN, Reddit, Wikipedia — funktioniert auf jeder Seite."},
+      {n:"3",h:"⚡ klicken und Sprache wählen",p:"Übersetzung erscheint Wort für Wort direkt unter dem Originaltext."},
+      {n:"4",h:"Seltenheitsfilter verwenden",p:"Seltene Wörter werden rot — konzentriere dein Lernen auf das Wesentliche."},
+    ],
+    langsTag:"SPRACHEN",langsTitle:"Für alle, die Englisch lernen wollen",
+    marketsTag:"WELTWEITE REICHWEITE",marketsTitle:"Milliarden Menschen wollen Englisch lernen",
+    priceTag:"PREIS",priceTitle:"Einmal. Für immer.",
+    priceSub:"Kein Abonnement. Keine Verlängerung. Einmal zahlen, für immer nutzen.",
+    priceCardTag:"Lebenslanger Zugang",priceOnce:"Einmalzahlung · keine monatliche Gebühr",
+    priceFeatures:["Unbegrenzte Seiten pro Tag","14 Übersetzungssprachen","Seltenheitsfilter (rot/grau)","Transparenzregelung","Chrome, Edge & Firefox","Updates inklusive"],
+    priceCta:"🔓 Jetzt kaufen — $2.99",
+    faqTag:"FAQ",faqTitle:"Fragen & Antworten",
+    faq:[
+      {q:"Ist der Test wirklich kostenlos?",a:"Ja. 7 Tage ohne Kreditkarte, ohne Registrierung. Installieren und benutzen."},
+      {q:"Wie erhalte ich meine Lizenz?",a:"Sofort per E-Mail, automatisch von Gumroad generiert."},
+    ],
+    finalTitle:"Bereit, wirklich Englisch zu lesen?",finalSub:"7 Tage kostenlos. Dann $2.99 für immer.",
+    finalCta:"⚡ Jetzt starten",
+    footerContact:"Support",footerTagline:"Für alle, die wirklich Englisch lernen wollen.",
+    demoLegend:"■ rot = seltenes Wort   ■ grau = häufiges Wort",
+    demoWords:[
+      {a:"Scientists",b:"Wissenschaftler",rare:true},{a:"have",b:"haben"},{a:"discovered",b:"entdeckt",rare:true},
+      {a:"a",b:"eine"},{a:"new",b:"neue"},{a:"species",b:"Spezies",rare:true},
+      {a:"in",b:"im"},{a:"the",b:"dem"},{a:"Amazon",b:"Amazonas"},
+    ],
+  },
+
+  ja: {
+    navCta:"購入 $2.99",heroTag:"🌍 Chrome · Edge · Firefox",
+    heroTitle:"どんなウェブサイトでも読みながら英語を学ぼう",
+    heroSub:"英単語の{strong}に翻訳が表示されます — Google翻訳を開かずに、ページ上で直接。",
+    heroStrong:"すぐ下",
+    btnBuy:"🔓 生涯アクセスを購入 — $2.99",btnTrial:"7日間無料体験",
+    heroNote:"💳 カード · PayPal · Bitcoin · USDT",
+    howTag:"使い方",howTitle:"読むように簡単。学ぶように強力。",
+    howSub:"3クリックで英語の記事を語彙レッスンに変えましょう。",
+    steps:[
+      {n:"1",h:"拡張機能をインストール",p:"Chrome、Edge、Firefoxに追加。カード不要の7日間無料体験。"},
+      {n:"2",h:"英語サイトを開く",p:"BBC、CNN、Reddit、Wikipedia — あらゆるページで動作。"},
+      {n:"3",h:"⚡をクリックして言語を選択",p:"翻訳が単語ごとに元のテキストのすぐ下に表示されます。"},
+      {n:"4",h:"レアリティフィルターを使用",p:"珍しい単語は赤くなります — 本当に重要なことに勉強を集中させましょう。"},
+    ],
+    langsTag:"言語",langsTitle:"世界中で英語を学びたい人のために",
+    marketsTag:"グローバルリーチ",marketsTitle:"何十億もの人々が英語を学びたい",
+    priceTag:"価格",priceTitle:"一度だけ。永遠に。",
+    priceSub:"サブスクなし。更新なし。一度払えば永遠に使えます。",
+    priceCardTag:"生涯アクセス",priceOnce:"一回払い · 月額なし",
+    priceFeatures:["1日無制限ページ","14翻訳言語","レアリティフィルター(赤/グレー)","透明度コントロール","Chrome、Edge、Firefox","アップデート込み"],
+    priceCta:"🔓 今すぐ購入 — $2.99",
+    faqTag:"よくある質問",faqTitle:"質問と回答",
+    faq:[
+      {q:"体験版は本当に無料ですか？",a:"はい。クレジットカード不要、登録不要で7日間。インストールして使うだけ。"},
+      {q:"ライセンスはどうやって受け取りますか？",a:"Gumroadがメールで自動送信します。拡張機能のポップアップに貼り付けてください。"},
+    ],
+    finalTitle:"本当に英語を読む準備はできていますか？",finalSub:"7日間無料。その後は$2.99で永久利用。",
+    finalCta:"⚡ 今すぐ始める",
+    footerContact:"サポート",footerTagline:"本当に英語を学びたい人のために作られました。",
+    demoLegend:"■ 赤 = 珍しい単語   ■ グレー = 一般的な単語",
+    demoWords:[
+      {a:"Scientists",b:"科学者",rare:true},{a:"have",b:"が"},{a:"discovered",b:"発見した",rare:true},
+      {a:"a",b:"新しい"},{a:"new",b:""},{a:"species",b:"種",rare:true},
+      {a:"in",b:"で"},{a:"the",b:""},{a:"Amazon",b:"アマゾン"},
+    ],
+  },
+
+  ko: {
+    navCta:"구매 $2.99",heroTag:"🌍 Chrome · Edge · Firefox",
+    heroTitle:"모든 웹사이트를 읽으면서 영어를 배우세요",
+    heroSub:"모든 영어 단어는 {strong}에 번역이 표시됩니다 — Google 번역을 열지 않고 페이지에서 바로.",
+    heroStrong:"바로 아래",
+    btnBuy:"🔓 평생 이용권 구매 — $2.99",btnTrial:"7일 무료 체험",
+    heroNote:"💳 카드 · PayPal · Bitcoin · USDT",
+    howTag:"사용 방법",howTitle:"읽기처럼 간단. 공부처럼 강력.",
+    howSub:"클릭 3번으로 모든 영어 기사를 어휘 수업으로 바꾸세요.",
+    steps:[
+      {n:"1",h:"확장 프로그램 설치",p:"Chrome, Edge, Firefox에 추가. 7일 무료 체험, 카드 불필요."},
+      {n:"2",h:"영어 웹사이트 열기",p:"BBC, CNN, Reddit, Wikipedia — 모든 페이지에서 작동."},
+      {n:"3",h:"⚡ 클릭 후 언어 선택",p:"번역이 원본 텍스트 바로 아래에 단어별로 표시됩니다."},
+      {n:"4",h:"희귀도 필터 사용",p:"드문 단어는 빨간색으로 표시 — 정말 중요한 것에 집중하세요."},
+    ],
+    langsTag:"언어",langsTitle:"영어를 배우고 싶은 전 세계 모든 분들을 위해",
+    marketsTag:"글로벌 도달",marketsTitle:"수십억 명이 영어를 배우고 싶어합니다",
+    priceTag:"가격",priceTitle:"한 번만. 영원히.",
+    priceSub:"구독 없음. 갱신 없음. 한 번 결제하면 영원히 사용.",
+    priceCardTag:"평생 이용권",priceOnce:"1회 결제 · 월정액 없음",
+    priceFeatures:["하루 무제한 페이지","14개 번역 언어","희귀도 필터 (빨강/회색)","투명도 조절","Chrome, Edge & Firefox","업데이트 포함"],
+    priceCta:"🔓 지금 구매 — $2.99",
+    faqTag:"자주 묻는 질문",faqTitle:"질문과 답변",
+    faq:[
+      {q:"체험판이 정말 무료인가요?",a:"네. 신용카드 없이, 등록 없이 7일간 사용 가능. 설치하고 바로 사용하세요."},
+      {q:"라이선스는 어떻게 받나요?",a:"Gumroad가 이메일로 자동 발송합니다. 확장 프로그램 팝업에 붙여넣으세요."},
+    ],
+    finalTitle:"진짜 영어로 읽을 준비가 되셨나요?",finalSub:"7일 무료. 이후 $2.99 영구 이용.",
+    finalCta:"⚡ 지금 시작",
+    footerContact:"지원",footerTagline:"정말 영어를 배우고 싶은 분들을 위해 만들었습니다.",
+    demoLegend:"■ 빨강 = 희귀 단어   ■ 회색 = 일반 단어",
+    demoWords:[
+      {a:"Scientists",b:"과학자들이",rare:true},{a:"have",b:""},{a:"discovered",b:"발견했다",rare:true},
+      {a:"a",b:"새로운"},{a:"new",b:""},{a:"species",b:"종을",rare:true},
+      {a:"in",b:"에서"},{a:"the",b:""},{a:"Amazon",b:"아마존"},
+    ],
+  },
+
+  zh: {
+    navCta:"购买 $2.99",heroTag:"🌍 Chrome · Edge · Firefox",
+    heroTitle:"边阅读任何网站边学英语",
+    heroSub:"每个英语单词的翻译显示{strong} — 直接在页面上，无需打开谷歌翻译。",
+    heroStrong:"在正下方",
+    btnBuy:"🔓 购买终身访问权 — $2.99",btnTrial:"免费试用7天",
+    heroNote:"💳 银行卡 · PayPal · Bitcoin · USDT",
+    howTag:"使用方法",howTitle:"简单如阅读，强大如学习。",
+    howSub:"点击3次，将任何英语文章变成词汇课。",
+    steps:[
+      {n:"1",h:"安装扩展程序",p:"添加到Chrome、Edge或Firefox。7天免费试用，无需信用卡。"},
+      {n:"2",h:"打开任何英语网站",p:"BBC、CNN、Reddit、维基百科 — 适用于任何页面。"},
+      {n:"3",h:"点击⚡并选择您的语言",p:"翻译逐词显示在原文正下方。"},
+      {n:"4",h:"使用稀有度过滤器",p:"生僻词变红 — 专注学习真正重要的内容。"},
+    ],
+    langsTag:"支持语言",langsTitle:"为全球所有想学英语的人",
+    marketsTag:"全球覆盖",marketsTitle:"数十亿人想学英语",
+    priceTag:"价格",priceTitle:"一次付款，终身使用。",
+    priceSub:"无订阅。无续费。一次付款，永久使用。",
+    priceCardTag:"终身访问权",priceOnce:"一次性付款 · 无月费",
+    priceFeatures:["每天无限页面","14种翻译语言","稀有度过滤器（红/灰）","透明度控制","Chrome、Edge和Firefox","包含更新"],
+    priceCta:"🔓 立即购买 — $2.99",
+    faqTag:"常见问题",faqTitle:"问题与解答",
+    faq:[
+      {q:"试用期真的免费吗？",a:"是的。7天无需信用卡，无需注册。安装即用。"},
+      {q:"购买后如何获得许可证？",a:"Gumroad会立即通过电子邮件自动发送。粘贴到扩展程序弹出窗口中。"},
+    ],
+    finalTitle:"准备好真正阅读英语了吗？",finalSub:"7天免费。之后$2.99永久使用。",
+    finalCta:"⚡ 立即开始",
+    footerContact:"支持",footerTagline:"为真正想学英语的人而制作。",
+    demoLegend:"■ 红色 = 生僻词   ■ 灰色 = 常用词",
+    demoWords:[
+      {a:"Scientists",b:"科学家",rare:true},{a:"have",b:"已经"},{a:"discovered",b:"发现",rare:true},
+      {a:"a",b:"一个"},{a:"new",b:"新"},{a:"species",b:"物种",rare:true},
+      {a:"in",b:"在"},{a:"the",b:""},{a:"Amazon",b:"亚马逊"},
+    ],
+  },
+};
+
+// ── Language detection ────────────────────────────────────────────────────────
+const LANG_KEYS = Object.keys(T);
+function detectLang() {
+  const stored = localStorage.getItem('fe_site_lang');
+  if (stored && T[stored]) return stored;
+  const nav = (navigator.language || navigator.userLanguage || 'en').toLowerCase();
+  for (const k of LANG_KEYS) { if (nav.startsWith(k)) return k; }
+  return 'en';
+}
+
+let currentLang = detectLang();
+
+function applyLang(lang) {
+  currentLang = lang;
+  localStorage.setItem('fe_site_lang', lang);
+  document.documentElement.lang = lang;
+  const t = T[lang] || T['en'];
+
+  document.getElementById('navCta').textContent = t.navCta;
+  document.getElementById('heroTag').textContent = t.heroTag;
+  document.getElementById('heroTitle').textContent = t.heroTitle;
+  const heroSubEl = document.getElementById('heroSub');
+  heroSubEl.innerHTML = t.heroSub.replace('{strong}', `<strong id="heroStrong">${t.heroStrong}</strong>`);
+  document.getElementById('btnBuy').textContent = t.btnBuy;
+  document.getElementById('btnTrial').textContent = t.btnTrial;
+  document.getElementById('heroNote').innerHTML = '💳 ' + t.heroNote.replace('💳 ', '');
+  document.getElementById('howTag').textContent = t.howTag;
+  document.getElementById('howTitle').textContent = t.howTitle;
+  document.getElementById('howSub').textContent = t.howSub;
+  document.getElementById('langsTag').textContent = t.langsTag;
+  document.getElementById('langsTitle').textContent = t.langsTitle;
+  document.getElementById('marketsTag').textContent = t.marketsTag;
+  document.getElementById('marketsTitle').textContent = t.marketsTitle;
+  document.getElementById('priceTag').textContent = t.priceTag;
+  document.getElementById('priceTitle').textContent = t.priceTitle;
+  document.getElementById('priceSub').textContent = t.priceSub;
+  document.getElementById('priceCardTag').textContent = t.priceCardTag;
+  document.getElementById('priceOnce').textContent = t.priceOnce;
+  document.getElementById('priceCta').textContent = t.priceCta;
+  document.getElementById('faqTag').textContent = t.faqTag;
+  document.getElementById('faqTitle').textContent = t.faqTitle;
+  document.getElementById('finalTitle').textContent = t.finalTitle;
+  document.getElementById('finalSub').textContent = t.finalSub;
+  document.getElementById('finalCta').textContent = t.finalCta;
+  document.getElementById('footerContact').textContent = t.footerContact;
+  document.getElementById('footerTagline').textContent = t.footerTagline;
+  document.getElementById('demoLegend').textContent = t.demoLegend;
+
+  // Steps
+  const stepsGrid = document.getElementById('stepsGrid');
+  stepsGrid.innerHTML = t.steps.map(s =>
+    `<div class="step"><div class="step-num">${s.n}</div><h3>${s.h}</h3><p>${s.p}</p></div>`
+  ).join('');
+
+  // Price features
+  document.getElementById('priceFeatures').innerHTML =
+    t.priceFeatures.map(f => `<li>${f}</li>`).join('');
+
+  // FAQ
+  document.getElementById('faqList').innerHTML =
+    t.faq.map(f => `<div class="faq-item"><div class="faq-q">${f.q}</div><div class="faq-a">${f.a}</div></div>`).join('');
+
+  // Demo words
+  document.getElementById('demoWords').innerHTML = t.demoWords.map(w =>
+    `<div class="demo-word"><span class="demo-a">${w.a}</span><span class="demo-b${w.rare?' rare':''}">${w.b}</span></div>`
+  ).join('');
+
+  // Active lang button
+  document.querySelectorAll('.lang-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.lang === lang);
+  });
+}
+
+// ── Lang switcher ─────────────────────────────────────────────────────────────
+const switcher = document.getElementById('langSwitcher');
+const FLAGS = {en:'🇺🇸',pt:'🇧🇷',es:'🇪🇸',fr:'🇫🇷',de:'🇩🇪',ja:'🇯🇵',ko:'🇰🇷',zh:'🇨🇳'};
+LANG_KEYS.forEach(k => {
+  const btn = document.createElement('button');
+  btn.className = 'lang-btn';
+  btn.dataset.lang = k;
+  btn.textContent = (FLAGS[k] || '') + ' ' + k.toUpperCase();
+  btn.addEventListener('click', () => applyLang(k));
+  switcher.appendChild(btn);
+});
+
+applyLang(currentLang);
+</script>
+</body>
+</html>
